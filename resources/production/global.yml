@@ -1,0 +1,16 @@
+replicaCount: 1
+
+environmentVariables: 
+  LISTEN_PORT: 8080
+
+spinnaker:
+  templateId: base-template@latest
+  chart:
+    name: chart
+    variables:
+      baseChartVersion: v0.1.1
+      kubernetesAccount: wewillsee
+      s3ArtifactAccount: s3-artifact
+      dockerRegistryAccount: aws-ecr
+      dockerRegistryDomain: random.dkr.ecr.us-east-1.amazonaws.com
+      dockerRegistryOrg: nagypeterjob
