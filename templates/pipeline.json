@@ -10,9 +10,8 @@
     "type": "templatedPipeline",
     "application": "{{ .ServiceName }}",
     "name": "{{ .Namespace }}",
-    "variables": {
-        {{ range $k, $v := .Spinnaker.Chart.Variables }}
-        "{{ $k }}": "{{ $v }}"{{ end }}
+    "variables": { {{ range $k, $v := .Spinnaker.Chart.Variables }}
+        "{{ $k }}": "{{ $v }}",{{ end }}
         "serviceName": "{{ .ServiceName }}",
         "namespace": "{{ .Namespace }}",
         "triggerRegexp": "{{ .Regexp }}"

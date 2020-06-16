@@ -22,9 +22,16 @@ const (
 	ResourcesPath           = "generated/resources"
 )
 
+type resourceType interface {
+	Write(string, string) error
+	getServiceName() string
+	getNs() string
+}
+
 type applicationResource struct {
 	ServiceName       string
 	KubernetesAccount string
+	Namespace         string
 }
 
 type pipelineResource struct {
@@ -76,6 +83,71 @@ func check(err error, msg string) {
 	}
 }
 
+func (a *applicationResource) Write(path string, tmpl string) error {
+	return writeTmpl(a, path, tmpl, func() (*os.File, error) {
+		resourcePath := fmt.Sprintf("%s/%s.json", path, a.getServiceName())
+		_, err := os.Stat(resourcePath)
+
+		// We don't want to write <application>.json for each namespace
+		// Open file handler when there is no <application>.json yet
+		if os.IsNotExist(err) {
+			return os.Create(resourcePath)
+		}
+		return nil, nil
+	})
+}
+
+func (a *applicationResource) getServiceName() string {
+	return a.ServiceName
+}
+
+func (a *applicationResource) getNs() string {
+	return a.Namespace
+}
+
+func (p *pipelineResource) Write(path string, tmpl string) error {
+	return writeTmpl(p, path, tmpl, func() (*os.File, error) {
+		return os.Create(fmt.Sprintf("%s/%s-%s.json", path, p.getServiceName(), p.getNs()))
+	})
+}
+
+func (a *pipelineResource) getServiceName() string {
+	return a.ServiceName
+}
+
+func (a *pipelineResource) getNs() string {
+	return a.Namespace
+}
+
+func writeTmpl(res resourceType, path string, tmplPath string, toFile func() (*os.File, error)) error {
+	f, err := toFile()
+	check(err, "Error occured while creating template file")
+
+	// <application>.json already exits, do not rewrite it
+	if f == nil {
+		return nil
+	}
+
+	data, err := ioutil.ReadFile(tmplPath)
+	check(err, fmt.Sprintf("Error occured while reading %s", tmplPath))
+
+	tmpl, err := template.New(res.getServiceName()).Parse(string(data))
+	check(err, ParsingTemplateErrMsg)
+
+	err = tmpl.Execute(f, res)
+	f.Close()
+	return err
+}
+
+func parseYAML(path string) (map[interface{}]interface{}, error) {
+	data, err := ioutil.ReadFile(path)
+	check(err, fmt.Sprintf("%s for %s", ReadingResourceErrMsg, path))
+
+	ret := make(map[interface{}]interface{})
+	err = yaml.Unmarshal([]byte(data), &ret)
+	return ret, err
+}
+
 var (
 	NoDirectoriesErrMsg     = fmt.Sprintf("You should create namespace directories under %s", ResourcesDir)
 	ReadingResourceErrMsg   = "Error occured while reading resources"
@@ -106,11 +178,7 @@ func main() {
 		check(err, fmt.Sprintf("%s for %s", ReadingResourceErrMsg, namespace))
 
 		globalPath := fmt.Sprintf("%s/%s/global.yml", ResourcesDir, namespace)
-		data, err := ioutil.ReadFile(globalPath)
-		check(err, fmt.Sprintf("%s for %s", ReadingResourceErrMsg, globalPath))
-
-		global := make(map[interface{}]interface{})
-		err = yaml.Unmarshal([]byte(data), &global)
+		global, err := parseYAML(globalPath)
 		check(err, fmt.Sprintf("Error occured while parsing resource %s", globalPath))
 
 		for _, filePath := range files {
@@ -124,15 +192,13 @@ func main() {
 				continue
 			}
 
-			data, err := ioutil.ReadFile(filePath)
-			check(err, fmt.Sprintf("Error occured while reading resource %s", filePath))
+			// Merge global & service values
 
-			values := make(map[interface{}]interface{})
-			err = yaml.Unmarshal([]byte(data), &values)
+			values, err := parseYAML(filePath)
 			check(err, fmt.Sprintf("Error occured while parsing resource %s", filePath))
 
 			merged := merge(values, global)
-			data, err = yaml.Marshal(&merged)
+			data, err := yaml.Marshal(&merged)
 			check(err, fmt.Sprintf("Error occured while marshaling merged resource %s", filePath))
 
 			err = ioutil.WriteFile(fmt.Sprintf("%s/%s-%s.yaml", ResourcesPath, serviceName, namespace), data, 0644)
@@ -140,25 +206,18 @@ func main() {
 
 			res := resource{}
 			err = mapstructure.Decode(merged, &res)
-			check(err, fmt.Sprintf("Error occured converting map to struct: %s", err.Error()))
+			check(err, fmt.Sprintf("Error occured converting map to struct"))
+
+			// Applicationx
 
 			app := applicationResource{
 				ServiceName:       serviceName,
 				KubernetesAccount: res.Spinnaker.Chart.Variables["kubernetesAccount"],
+				Namespace:         namespace,
 			}
 
-			data, err = ioutil.ReadFile(applicationTemplatePath)
-			check(err, fmt.Sprintf("Error occured while reading %s", applicationTemplatePath))
-
-			tmpl, err := template.New(serviceName).Parse(string(data))
-			check(err, ParsingTemplateErrMsg)
-
-			f, err := os.Create(fmt.Sprintf("%s/%s-%s.yaml", ApplicationsPath, serviceName, namespace))
-			check(err, "Error occured while creating template file")
-
-			err = tmpl.Execute(f, app)
+			err = app.Write(ApplicationsPath, applicationTemplatePath)
 			check(err, ExecutingTemplateErrMsg)
-			f.Close()
 
 			// Pipelines
 
@@ -171,19 +230,9 @@ func main() {
 				Spinnaker:   res.Spinnaker,
 			}
 
-			data, err = ioutil.ReadFile(PipelineTemplatePath)
-			check(err, fmt.Sprintf("Error occured while reading %s", PipelineTemplatePath))
-
-			tmpl, err = template.New(serviceName).Parse(string(data))
-			check(err, ParsingTemplateErrMsg)
-
-			f, err = os.Create(fmt.Sprintf("%s/%s-%s.yaml", PipelinesPath, serviceName, namespace))
-			check(err, "Error occured while creating template file")
-
-			err = tmpl.Execute(f, pipeline)
+			err = pipeline.Write(PipelinesPath, PipelineTemplatePath)
 			check(err, ExecutingTemplateErrMsg)
-			f.Close()
-
+			fmt.Printf("Resource generation has finished for %s namespace.\n", namespace)
 		}
 	}
 }
