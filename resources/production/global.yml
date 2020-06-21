@@ -5,6 +5,7 @@ environmentVariables:
 
 spinnaker:
   templateId: base-template@latest
+  triggerRegexp: v(\\\\d+\\\\.?)+.*
   chart:
     name: chart
     variables:

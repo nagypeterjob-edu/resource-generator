@@ -1,1 +1,8 @@
 replicaCount: 3
+
+spinnaker:
+  templateId: base-template-v2@latest
+  chart:
+    name: chart2
+    variables:
+      kubernetesAccount: wewillseee
