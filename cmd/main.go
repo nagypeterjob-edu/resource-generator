@@ -9,55 +9,23 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
-	"text/template"
 
 	"github.com/mitchellh/mapstructure"
+	"github.com/nagypeterjob-edu/application-values/pkg/hash"
+	"github.com/nagypeterjob-edu/application-values/pkg/resource"
 	"gopkg.in/yaml.v3"
 )
 
 var (
-	// Templates location
+	// Points to the resource templates
 	TemplatesDir = ""
-	// Location of namespace and service information
+	// Poinst to the location of namespace and service information
 	ResourcesDir = ""
 	// Destination directory
 	GeneratedDir = ""
+	// Points to the directory containing the current version of resources synced from S3
+	PathCurrent = ""
 )
-
-type ResourceType interface {
-	write(string, string) error
-	getServiceName() string
-	getNs() string
-}
-
-type ApplicationResource struct {
-	ServiceName       string
-	KubernetesAccount string
-	Namespace         string
-}
-
-type PipelineResource struct {
-	ServiceName string
-	Namespace   string
-	Regexp      string
-	Spinnaker   Spinnaker
-}
-
-type Spinnaker struct {
-	TemplateId    string `mapstructure:"templateId"`
-	TriggerRegexp string `mapstructure:"triggerRegexp"`
-	Chart         struct {
-		Name      string            `mapstructure:"name"`
-		Variables map[string]string `mapstructure:"variables"`
-	} `mapstructure:"chart"`
-}
-
-type Resource struct {
-	ReplicaCount         int                    `mapstructure:"replicaCount"`
-	EnvironmentVariables map[string]interface{} `mapstructure:"environmentVariables"`
-
-	Spinnaker `mapstructure:"spinnaker"`
-}
 
 type YAML = map[string]interface{}
 
@@ -94,55 +62,6 @@ func merge(values YAML, global YAML) YAML {
 	return values
 }
 
-func (a *ApplicationResource) write(path string, tmpl string) error {
-	resourcePath := fmt.Sprintf("%s/%s.json", path, a.getServiceName())
-	_, err := os.Stat(resourcePath)
-
-	// We don't want to write <application>.json for each namespace
-	// Open file handler only when there is no <application>.json yet
-	if os.IsNotExist(err) {
-		handler, err := os.Create(resourcePath)
-		check(err, CreatingTemplateErrMsg)
-		defer handler.Close()
-		return writeTmpl(a, handler, path, tmpl)
-	}
-	return nil
-}
-
-func (a *ApplicationResource) getServiceName() string {
-	return a.ServiceName
-}
-
-func (a *ApplicationResource) getNs() string {
-	return a.Namespace
-}
-
-func (p *PipelineResource) write(path string, tmpl string) error {
-	handler, err := os.Create(fmt.Sprintf("%s/%s-%s.json", path, p.getServiceName(), p.getNs()))
-	check(err, CreatingTemplateErrMsg)
-	defer handler.Close()
-	return writeTmpl(p, handler, path, tmpl)
-}
-
-func (a *PipelineResource) getServiceName() string {
-	return a.ServiceName
-}
-
-func (a *PipelineResource) getNs() string {
-	return a.Namespace
-}
-
-func writeTmpl(res ResourceType, handler *os.File, path string, tmplPath string) error {
-	data, err := ioutil.ReadFile(tmplPath)
-	check(err, fmt.Sprintf("Error occured while reading %s", tmplPath))
-
-	tmpl, err := template.New(res.getServiceName()).Parse(string(data))
-	check(err, ParsingTemplateErrMsg)
-
-	err = tmpl.Execute(handler, res)
-	return err
-}
-
 func parseYAML(path string) (YAML, error) {
 	data, err := ioutil.ReadFile(path)
 	check(err, fmt.Sprintf("%s for %s", ReadingResourceErrMsg, path))
@@ -155,27 +74,65 @@ func parseYAML(path string) (YAML, error) {
 var (
 	NoDirectoriesErrMsg     = fmt.Sprintf("You should create namespace directories under %s", ResourcesDir)
 	ReadingResourceErrMsg   = "Error occured while reading resources"
-	ParsingTemplateErrMsg   = "Error orccured while parsing template"
 	ExecutingTemplateErrMsg = "Error orccured while executing template"
-	CreatingTemplateErrMsg  = "Error creating file for go template to fill"
 )
 
-func main() {
+func pathExists(path string) bool {
+	_, err := os.Stat(path)
+	return !os.IsNotExist(err)
+}
 
-	optionsSet := flag.NewFlagSet("optionsSet", flag.ExitOnError)
-	optionsSet.StringVar(&TemplatesDir, "templates", "templates", "Template files location")
-	optionsSet.StringVar(&ResourcesDir, "values", "", "Values files location")
-	optionsSet.StringVar(&GeneratedDir, "destination", "", "Generated files will end up here")
-	err := optionsSet.Parse(os.Args[1:])
-	check(err, "Error parsing flags")
-
-	directories, err := retrieveResources(ResourcesDir, "**")
-	check(err, NoDirectoriesErrMsg)
-
-	if len(directories) < 1 {
-		fmt.Println(NoDirectoriesErrMsg)
-		os.Exit(1)
+func compareHash(a string, b string) (bool, error) {
+	aHash, err := hash.CalculateHash(a)
+	if err != nil {
+		return false, err
 	}
+
+	bHash, err := hash.CalculateHash(b)
+	if err != nil {
+		return false, err
+	}
+	return aHash == bHash, nil
+}
+
+func resourcesToUpdate() ([]string, error) {
+	var filtered []string
+
+	if !pathExists(PathCurrent) {
+		return filtered, nil
+	}
+
+	resources, err := retrieveResources(GeneratedDir, "resources/**")
+	if err != nil {
+		return filtered, err
+	}
+
+	// Iterate over generated files & try to find their pair among the files synced from S3
+	for _, resource := range resources {
+		// Get filename
+		_, file := filepath.Split(resource)
+
+		pairPath := fmt.Sprintf("%s/%s", PathCurrent, file)
+		// Check if "pair" exists
+		if !pathExists(pairPath) {
+			filtered = append(filtered, resource)
+			continue
+		}
+
+		noChange, err := compareHash(resource, pairPath)
+		if err != nil {
+			return filtered, err
+		}
+		if !noChange {
+			filtered = append(filtered, resource)
+		}
+	}
+
+	return filtered, nil
+}
+
+func generateResources(directories []string) map[string]resource.Resource {
+	resources := make(map[string]resource.Resource, len(directories))
 
 	for _, path := range directories {
 		var namespace string
@@ -215,36 +172,81 @@ func main() {
 			data, err := yaml.Marshal(&merged)
 			check(err, fmt.Sprintf("Error occured while marshaling merged resource %s", filePath))
 
-			err = ioutil.WriteFile(fmt.Sprintf("%s/resources/%s-%s.yaml", GeneratedDir, serviceName, namespace), data, 0644)
+			key := fmt.Sprintf("%s-%s.yaml", serviceName, namespace)
+			err = ioutil.WriteFile(fmt.Sprintf("%s/resources/%s", GeneratedDir, key), data, 0644)
 			check(err, fmt.Sprintf("Error occured while writing merged resource %s", filePath))
 
-			res := Resource{}
+			res := resource.Resource{}
 			err = mapstructure.Decode(merged, &res)
 			check(err, "Error occured converting map to struct")
 
-			// Applicationx
-
-			app := ApplicationResource{
-				ServiceName:       serviceName,
-				KubernetesAccount: res.Spinnaker.Chart.Variables["kubernetesAccount"],
-				Namespace:         namespace,
-			}
-
-			err = app.write(fmt.Sprintf("%s/applications", GeneratedDir), fmt.Sprintf("%s/application.json", TemplatesDir))
-			check(err, ExecutingTemplateErrMsg)
-
-			// Pipelines
-
-			pipeline := PipelineResource{
-				ServiceName: serviceName,
-				Namespace:   namespace,
-				Regexp:      res.TriggerRegexp,
-				Spinnaker:   res.Spinnaker,
-			}
-
-			err = pipeline.write(fmt.Sprintf("%s/pipelines", GeneratedDir), fmt.Sprintf("%s/pipeline.json", TemplatesDir))
-			check(err, ExecutingTemplateErrMsg)
-			fmt.Printf("Resource generation has finished for %s namespace.\n", namespace)
+			resources[key] = res
 		}
+	}
+	return resources
+}
+
+func main() {
+
+	optionsSet := flag.NewFlagSet("optionsSet", flag.ExitOnError)
+	optionsSet.StringVar(&TemplatesDir, "templates", "templates", "Template files location")
+	optionsSet.StringVar(&ResourcesDir, "values", "", "Values files location")
+	optionsSet.StringVar(&GeneratedDir, "destination", "", "Generated files will end up here")
+	optionsSet.StringVar(&PathCurrent, "current", "tmp", "Points to the directory containing the current version of resources")
+	err := optionsSet.Parse(os.Args[1:])
+	check(err, "Error parsing flags")
+
+	directories, err := retrieveResources(ResourcesDir, "**")
+	check(err, NoDirectoriesErrMsg)
+
+	if len(directories) < 1 {
+		fmt.Println(NoDirectoriesErrMsg)
+		os.Exit(1)
+	}
+
+	resourceMap := generateResources(directories)
+
+	resources, err := resourcesToUpdate()
+	check(err, "Error happened while collecting resources to update")
+	if len(resources) < 1 {
+		fmt.Println("There is no need to update any resources")
+		os.Exit(0)
+	}
+
+	for _, path := range resources {
+
+		_, filename := filepath.Split(path)
+		extension := filepath.Ext(filename)
+		name := filename[0 : len(filename)-len(extension)]
+		parts := strings.SplitN(name, "-", 3)
+
+		serviceName := strings.Join(parts[0:2], "-")
+		ns := parts[2]
+
+		res := resourceMap[filename]
+
+		// Applications
+
+		app := resource.Application{
+			ServiceName:       serviceName,
+			KubernetesAccount: res.Spinnaker.Chart.Variables["kubernetesAccount"],
+			Namespace:         ns,
+		}
+
+		err = app.Write(fmt.Sprintf("%s/applications", GeneratedDir), fmt.Sprintf("%s/application.json", TemplatesDir))
+		check(err, ExecutingTemplateErrMsg)
+
+		// Pipelines
+
+		pipeline := resource.Pipeline{
+			ServiceName: serviceName,
+			Namespace:   ns,
+			Regexp:      res.Spinnaker.TriggerRegexp,
+			Spinnaker:   res.Spinnaker,
+		}
+
+		err = pipeline.Write(fmt.Sprintf("%s/pipelines", GeneratedDir), fmt.Sprintf("%s/pipeline.json", TemplatesDir))
+		check(err, ExecutingTemplateErrMsg)
+		fmt.Printf("Resource generation has finished for %s namespace.\n", ns)
 	}
 }
