@@ -72,7 +72,7 @@ func parseYAML(path string) (YAML, error) {
 }
 
 var (
-	NoDirectoriesErrMsg     = fmt.Sprintf("You should create namespace directories under %s", ResourcesDir)
+	NoDirectoriesErrMsg     = fmt.Sprintf("You should create directories for namespaces under %s", ResourcesDir)
 	ReadingResourceErrMsg   = "Error occured while reading resources"
 	ExecutingTemplateErrMsg = "Error orccured while executing template"
 )
@@ -95,19 +95,25 @@ func compareHash(a string, b string) (bool, error) {
 	return aHash == bHash, nil
 }
 
-func resourcesToUpdate() ([]string, error) {
+func resourcesToUpdate() ([]string, bool, error) {
 	var filtered []string
 
 	if !pathExists(PathCurrent) {
-		return filtered, nil
+		// there are no previous resources so upload them anyways, hence return true
+		return filtered, true, nil
 	}
 
 	resources, err := retrieveResources(GeneratedDir, "resources/**")
 	if err != nil {
-		return filtered, err
+		return filtered, false, err
 	}
 
-	// Iterate over generated files & try to find their pair among the files synced from S3
+	if len(resources) < 1 {
+		// there are no previous resources so upload anyways, hence return true
+		return resources, true, nil
+	}
+
+	// Iterate over generated files & try to find their pair among the files synced from S3 bucket
 	for _, resource := range resources {
 		// Get filename
 		_, file := filepath.Split(resource)
@@ -121,14 +127,14 @@ func resourcesToUpdate() ([]string, error) {
 
 		noChange, err := compareHash(resource, pairPath)
 		if err != nil {
-			return filtered, err
+			return filtered, false, err
 		}
 		if !noChange {
 			filtered = append(filtered, resource)
 		}
 	}
 
-	return filtered, nil
+	return filtered, false, nil
 }
 
 func generateResources(directories []string) map[string]resource.Resource {
@@ -206,9 +212,9 @@ func main() {
 
 	resourceMap := generateResources(directories)
 
-	resources, err := resourcesToUpdate()
+	resources, firstDeployment, err := resourcesToUpdate()
 	check(err, "Error happened while collecting resources to update")
-	if len(resources) < 1 {
+	if len(resources) < 1 && !firstDeployment {
 		fmt.Println("There is no need to update any resources")
 		os.Exit(0)
 	}

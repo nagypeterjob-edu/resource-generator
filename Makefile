@@ -18,7 +18,6 @@ generate:
 	echo $${ENCODED_SPIN_CONFIG} | base64 -d > ~/.spin/config
 	aws s3 sync s3://$${AWS_S3_BUCKET}/values $(currentValues)
 
-	# TODO pull old pipelines to compare hash
 	gen --destination $(destination) --values $(resources)
 
 	# Upload values to S3
