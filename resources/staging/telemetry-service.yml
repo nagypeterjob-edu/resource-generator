@@ -1,4 +1,4 @@
 replicaCount: 1
 
 environmentVariables: 
-  LISTEN_PORT: 8080
+  LISTEN_PORT: 8090

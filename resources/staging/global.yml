@@ -10,7 +10,7 @@ spinnaker:
     name: chart
     variables:
       baseChartVersion: v0.1.1
-      kubernetesAccount: wewillsee
+      kubernetesAccount: wewillsee2
       s3ArtifactAccount: s3-artifact
       dockerRegistryAccount: aws-ecr
       dockerRegistryDomain: random.dkr.ecr.us-east-1.amazonaws.com

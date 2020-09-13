@@ -2,15 +2,12 @@ package resource
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"text/template"
 )
 
 type ResourceType interface {
-	Write(string, string) error
-	getServiceName() string
-	getNs() string
+	Write(string) error
 }
 
 type Spinnaker struct {
@@ -22,7 +19,7 @@ type Spinnaker struct {
 	} `mapstructure:"chart"`
 }
 
-type Resource struct {
+type Values struct {
 	ReplicaCount         int                    `mapstructure:"replicaCount"`
 	EnvironmentVariables map[string]interface{} `mapstructure:"environmentVariables"`
 
@@ -34,14 +31,8 @@ var (
 	ParsingTemplateErrMsg  = "Error orccured while parsing template"
 )
 
-func writeTmpl(res ResourceType, handler *os.File, path string, tmplPath string) error {
-	data, err := ioutil.ReadFile(tmplPath)
-	if err != nil {
-		fmt.Printf("Error occured while reading %s", tmplPath)
-		os.Exit(1)
-	}
-
-	tmpl, err := template.New(res.getServiceName()).Parse(string(data))
+func writeTmpl(res ResourceType, handler *os.File, rawTmpl string) error {
+	tmpl, err := template.New("tmpl").Parse(rawTmpl)
 	if err != nil {
 		fmt.Printf("%s, err: %s \n", ParsingTemplateErrMsg, err)
 		os.Exit(1)

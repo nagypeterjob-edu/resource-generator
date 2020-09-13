@@ -1,5 +1,8 @@
 replicaCount: 3
 
+environmentVariables: 
+  LISTEN_PORT: 3000
+
 spinnaker:
   templateId: base-template-v2@latest
   chart:

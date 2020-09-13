@@ -3,6 +3,8 @@ package resource
 import (
 	"fmt"
 	"os"
+
+	"github.com/nagypeterjob-edu/application-values/pkg/templates"
 )
 
 type Application struct {
@@ -11,8 +13,8 @@ type Application struct {
 	Namespace         string
 }
 
-func (a *Application) Write(path string, tmpl string) error {
-	resourcePath := fmt.Sprintf("%s/%s.json", path, a.getServiceName())
+func (a *Application) Write(path string) error {
+	resourcePath := fmt.Sprintf("%s/%s.json", path, a.ServiceName)
 	_, err := os.Stat(resourcePath)
 
 	// We don't want to write <application>.json for each namespace
@@ -24,7 +26,7 @@ func (a *Application) Write(path string, tmpl string) error {
 			os.Exit(1)
 		}
 		defer handler.Close()
-		return writeTmpl(a, handler, path, tmpl)
+		return writeTmpl(a, handler, templates.ApplicationTmpl)
 	}
 	return nil
 }
