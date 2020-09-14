@@ -10,7 +10,6 @@ import (
 type Application struct {
 	ServiceName       string
 	KubernetesAccount string
-	Namespace         string
 }
 
 func (a *Application) Write(path string) error {
@@ -29,12 +28,4 @@ func (a *Application) Write(path string) error {
 		return writeTmpl(a, handler, templates.ApplicationTmpl)
 	}
 	return nil
-}
-
-func (a *Application) getServiceName() string {
-	return a.ServiceName
-}
-
-func (a *Application) getNs() string {
-	return a.Namespace
 }

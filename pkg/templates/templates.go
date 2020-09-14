@@ -19,7 +19,7 @@ var PipelineTmpl = `{
     "type": "templatedPipeline",
     "application": "{{ .ServiceName }}",
     "name": "{{ .Namespace }}",
-    "variables": { {{ range $k, $v := .Spinnaker.Chart.Variables }}
+    "parameters": { {{ range $k, $v := .Spinnaker.Chart.Parameters }}
         "{{ $k }}": "{{ $v }}",{{ end }}
         "serviceName": "{{ .ServiceName }}",
         "namespace": "{{ .Namespace }}",

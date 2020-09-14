@@ -8,7 +8,7 @@ spinnaker:
   triggerRegexp: \\\\b[0-9a-f]{40}
   chart:
     name: chart
-    variables:
+    parameters:
       baseChartVersion: v0.1.1
       kubernetesAccount: wewillsee2
       s3ArtifactAccount: s3-artifact

@@ -1,23 +1,22 @@
 # application-values
-Application overrides, spinnaker pipeline deployer
+Application overrides, Spinnaker pipeline deployer
 
-**gen** will calculate md5 hash for existing <values>.yml files & generate new <values>.yamls based on provided values. If there were no change in the contents, **gen** won't generate `application.json` and `pipeline.json` for given yaml. Thus `make generate` will only update applications and pipelines in Spinnaker which has really changed.
+**gen** generates Helm values files, Spinnaker pipeline and application templates for input resources.
+When `--bucket` flag is defined, **gen** looks for previously generated resources in remote location and compares it to the local hash. If the hashes are identical, there is no need to re-generated & re-upload the helm values file. Spinnaker application & pipeline templates will always be updated.
 
-## Mandatory directory structure
+## Expected directory structure
 
 ```bash
 root/
-├── templates/
-│   ├── application.json
-│   └── pipeline.json
-└── resources (can define other name by flag)
+│
+└── resources (can define other name by `--values` flag)
     ├── namespace1/
     │   ├── global.yml
     │   ├── service1.yml
     │   .
     │   └── serviceN.yml
     .
-    └── namespaeN/
+    └── namespaceN/
         ├── global.yml
         ├── service1.yml
         .
@@ -25,13 +24,31 @@ root/
 ```
 
 ## Flags & Usage
-`-destination` : Generated files will end up in this directory
-`-templates` : Template files location (default "templates")
-`-values` : Values files location
+`--destination` : Generated files will end up in this directory. If missing, **gen** will generate the following output directories:
+```bash
+<destination>/ (directory defined by `--destination` flag)
+│
+└── resources/ (stores generated Helm values)
+│    
+└── applications/ (store generated Spinnaker application templates)
+│
+└── pipelines/ (store generated Spinnaker pipeline templates)
+```
+
+`--values` : Initial values files location
+`--bucket` : S3 bucket name. When `--bucket` flag is defined, **gen** looks for previously generated resources in remote location and compares it to the local hash. If the hashes are identical, there is no need to re-generated & re-upload the helm values file.
+`--region` : Region of the S3 bucket. *default:* **us-east-1**
+`--prefix` : S3 key prefix. Helm values should be uploaded to this directory inside the bucket. *default:* **values**
+`--workers` : Number of goroutines used for resource generation. If x <= 0, **gen** uses all available CPU cores. *default:* **-1**
+
+```
+Please note that when --bucket flag is set, the application requires access to the defined bucket.
+```
+
 
 ### Example 
 ```bash
-gen -destination "generated" -templates "templates" -values "resources"
+gen --destination "generated" --values "resources" --bucket "helm-charts" --region "us-east-1" --workers 4
 ```
 
 TODO

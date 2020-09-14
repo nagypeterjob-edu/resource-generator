@@ -8,7 +8,7 @@ spinnaker:
   triggerRegexp: v(\\\\d+\\\\.?)+.*
   chart:
     name: chart
-    variables:
+    parameters:
       baseChartVersion: v0.1.1
       kubernetesAccount: wewillsee
       s3ArtifactAccount: s3-artifact

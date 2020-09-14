@@ -8,9 +8,9 @@ import (
 )
 
 type Pipeline struct {
-	ServiceName string
 	Namespace   string
-	Spinnaker   Spinnaker
+	ServiceName string
+	Spinnaker   SpinnakerConfig
 }
 
 func (p *Pipeline) Write(path string) error {
@@ -21,12 +21,4 @@ func (p *Pipeline) Write(path string) error {
 	}
 	defer handler.Close()
 	return writeTmpl(p, handler, templates.PipelineTmpl)
-}
-
-func (a *Pipeline) getServiceName() string {
-	return a.ServiceName
-}
-
-func (a *Pipeline) getNs() string {
-	return a.Namespace
 }

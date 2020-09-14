@@ -4,23 +4,17 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"io"
-	"os"
 )
 
 // Calculate hash is used for md5 hash calculation for an arbitrary file
-func CalculateHash(filePath string) (string, error) {
+func CalculateHash(data io.Reader) (string, error) {
 	var returnMD5String string
-	file, err := os.Open(filePath)
-	if err != nil {
-		return returnMD5String, err
-	}
-	defer file.Close()
+
 	hash := md5.New()
-	if _, err := io.Copy(hash, file); err != nil {
+	if _, err := io.Copy(hash, data); err != nil {
 		return returnMD5String, err
 	}
 	hashInBytes := hash.Sum(nil)[:16]
 	returnMD5String = hex.EncodeToString(hashInBytes)
 	return returnMD5String, nil
-
 }

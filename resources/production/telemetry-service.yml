@@ -7,5 +7,5 @@ spinnaker:
   templateId: base-template-v2@latest
   chart:
     name: chart2
-    variables:
+    parameters:
       kubernetesAccount: wewillseee
