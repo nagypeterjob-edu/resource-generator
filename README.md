@@ -30,9 +30,9 @@ root/
 │
 └── resources/ (stores generated Helm values)
 │    
-└── applications/ (store generated Spinnaker application templates)
+└── applications/ (stores generated Spinnaker application templates)
 │
-└── pipelines/ (store generated Spinnaker pipeline templates)
+└── pipelines/ (stores generated Spinnaker pipeline templates)
 ```
 
 **--values** : Initial values files location  
