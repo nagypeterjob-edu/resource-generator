@@ -3,7 +3,7 @@ go:
   - "1.14"
   
 before_install:
-  - [ -z "${GOCI_VERSION}" ] &&  export GOCI_VERSION=v1.30.0
+  - "[ -z ${GOCI_VERSION} ] && export GOCI_VERSION=v1.30.0"
   - curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s ${GOCI_VERSION}
 
 jobs:
