@@ -1,4 +1,4 @@
-# application-values
+# resource-generator
 Application overrides, Spinnaker pipeline deployer
 
 **gen** generates Helm values files, Spinnaker pipeline and application templates for input resources.
