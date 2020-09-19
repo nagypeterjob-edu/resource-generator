@@ -1,5 +1,6 @@
 builds:
-  - binary: gen
+  main: ./cmd/main.go
+  binary: gen
     goos:
       - linux
     goarch:
