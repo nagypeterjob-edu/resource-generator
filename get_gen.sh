@@ -29,4 +29,4 @@ download() {
 download
 tar -xf "$TAR_FILE" -C "$TMPDIR"
 echo "Unzipped: $TAR_FILE to $TMPDIR"
-mv "$TMPDIR"/gen" $(pwd)
+mv "$TMPDIR/gen" $(pwd)
