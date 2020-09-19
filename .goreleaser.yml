@@ -14,3 +14,6 @@ archives:
   - builds:
     - resource-gen
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    
+    replacements:
+      amd64: x86_64
