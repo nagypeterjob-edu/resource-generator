@@ -26,4 +26,5 @@ download() {
 
 download
 tar -xf "$TAR_FILE" -C "$TMPDIR"
-"${TMPDIR}/gen" "$@"
+chmod +x "${TMPDIR}/gen"
+mv "${TMPDIR}/gen" /usr/local/bin
