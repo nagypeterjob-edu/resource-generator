@@ -11,6 +11,6 @@ builds:
       - amd64
 
 archives:
-  builds:
-  - resource-gen
-  name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+  - builds:
+    - resource-gen
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"

@@ -14,5 +14,4 @@ test:
 	go test -count=1 -race -cover -v $(shell go list ./... | grep -v -e /vendor/)
 
 deploy:
-	curl -sfL https://install.goreleaser.com/github.com/goreleaser/goreleaser.sh | sh
-    curl -sL https://git.io/goreleaser | bash
+	curl -sL https://git.io/goreleaser | bash
