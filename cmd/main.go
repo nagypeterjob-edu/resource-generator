@@ -69,6 +69,11 @@ func walkResources(root string, ctx context.Context) (<-chan string, <-chan erro
 				return nil
 			}
 
+			ext := filepath.Ext(path)
+			if ext != ".yml" && ext != ".yaml" {
+				return nil
+			}
+
 			select {
 			case resources <- path:
 			case <-ctx.Done():
@@ -268,8 +273,6 @@ func main() {
 	// collect resource paths
 	paths, errc := walkResources(resourcesDir, ctx)
 
-	errors := make(chan error)
-
 	var wg sync.WaitGroup
 	wg.Add(workers)
 	for i := 0; i < workers; i++ {
@@ -283,7 +286,7 @@ func main() {
 				serviceName := strings.TrimSuffix(filename, ext)
 
 				if serviceName == "global" {
-					return
+					continue
 				}
 
 				content, err := parseYaml(path)
@@ -312,10 +315,10 @@ func main() {
 					content:     strings.NewReader(string(data)),
 				}
 
-				select {
-				case errors <- s.generateSpinnakerStuff(merged):
-				case <-ctx.Done():
-					return
+				err = s.generateSpinnakerStuff(merged)
+				if err != nil {
+					cancelFunc()
+					panic(err)
 				}
 
 				// If there is no bucket defined, regenerate all resources
@@ -346,18 +349,7 @@ func main() {
 	}
 
 	// Wait for each service generation to complete
-	go func() {
-		wg.Wait()
-		close(errors)
-	}()
-
-	// See if there were any errors during resource generation
-	for err := range errors {
-		if err != nil {
-			cancelFunc()
-			panic(err)
-		}
-	}
+	wg.Wait()
 
 	if err = <-errc; err != nil {
 		panic(err)
