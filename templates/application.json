@@ -1,6 +1,0 @@
-{
-    "name": "{{ .ServiceName }}",
-    "accounts": "{{ .KubernetesAccount }}",
-    "cloudProviders": "kubernetes",
-    "email": "nagypeterjob@gmail.com"
-}

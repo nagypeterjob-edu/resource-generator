@@ -1,0 +1,26 @@
+language: go
+go:
+  - "1.14"
+  
+before_install:
+  - if [ -z "${GOCI_VERSION}" ] then export GOCI_VERSION = v1.30.0 fi
+  - curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s ${GOCI_VERSION}
+
+jobs:
+  include:
+    - stage: test
+      if: tag IS blank
+      script:
+        make test
+    - stage: build & publich
+      if: tag =~ ^v(\d+.?)+.*$
+      script:
+      - curl -sfL https://install.goreleaser.com/github.com/goreleaser/goreleaser.sh | sh
+
+deploy:
+- provider: script
+  skip_cleanup: true
+  script: curl -sL https://git.io/goreleaser | bash
+  on:
+    tags: true
+    condition: $TRAVIS_OS_NAME = linux

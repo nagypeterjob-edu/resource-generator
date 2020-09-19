@@ -1,4 +1,0 @@
-replicaCount: 1
-
-environmentVariables: 
-  LISTEN_PORT: 8090

@@ -1,0 +1,6 @@
+builds:
+  - binary: gen
+    goos:
+      - linux
+    goarch:
+      - amd64
