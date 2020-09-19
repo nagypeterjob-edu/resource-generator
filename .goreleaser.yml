@@ -1,7 +1,7 @@
 builds:
   main: ./cmd/main.go
   binary: gen
-    goos:
-      - linux
-    goarch:
-      - amd64
+  goos:
+    - linux
+  goarch:
+    - amd64
