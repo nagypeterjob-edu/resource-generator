@@ -1,7 +1,16 @@
 builds:
   - main: ./cmd/main.go
+
+    id: "resource-gen"
+
     binary: gen
+  
     goos:
       - linux
     goarch:
       - amd64
+
+archives:
+  builds:
+  - resource-gen
+  name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
