@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-TAR_FILE="./tmp/gen.tar.gz"
+TAR_FILE="/tmp/gen.tar.gz"
 RELEASES_URL="https://github.com/nagypeterjob-edu/resource-generator/releases"
 test -z "$TMPDIR" && TMPDIR="$(mktemp -d)"
 echo "tmp dir: ${TMPDIR}"
